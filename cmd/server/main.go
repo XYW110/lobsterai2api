@@ -3,7 +3,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -18,20 +20,31 @@ import (
 	"lobsterai2api/internal/upstream"
 )
 
+// authRescanInterval auths/ 目录重扫间隔（容器里新增账号后免重启）。
+const authRescanInterval = 30 * time.Second
+
 func main() {
 	cfgPath := flag.String("config", "config.json", "path to config json")
 	flag.Parse()
 
 	cfg, err := Load(*cfgPath)
 	if err != nil {
-		// 配置文件不存在时给一次机会用纯默认 + env
-		if os.IsNotExist(err) {
+		// 配置文件不存在时给一次机会用纯默认 + env（容器部署不挂载 config.json 是常态）
+		if errors.Is(err, fs.ErrNotExist) {
 			log.Printf("config %s not found, using defaults+env", *cfgPath)
 			cfg, err = Load("")
 		}
 		if err != nil {
 			log.Fatalf("load config: %v", err)
 		}
+	}
+
+	// 上游基址统一由 upstream 包收口：config.json 的 upstream.base_url 优先
+	if cfg.Upstream.BaseURL != "" {
+		upstream.SetServerBase(cfg.Upstream.BaseURL)
+	}
+	if upstream.ServerBase() == "" {
+		log.Printf("warning: upstream base url is empty (set LB2A_UPSTREAM_BASE or upstream.base_url)")
 	}
 
 	auths, err := auth.LoadDir(cfg.AuthDir)
@@ -68,6 +81,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	go sch.Run(ctx)
+	go rescanAuths(ctx, p, cfg.AuthDir)
 	// 启动后延迟拉一次积分（立即刷新 pool.credits，不用等整点）
 	go func() {
 		time.Sleep(5 * time.Second)
@@ -91,4 +105,23 @@ func main() {
 		log.Fatalf("http: %v", err)
 	}
 	log.Printf("bye")
+}
+
+// rescanAuths 周期性重扫 auths/ 目录并同步进池：
+// 新增账号文件自动生效、被删除的账号自动剔除（凭证刷新落盘后不受影响）。
+func rescanAuths(ctx context.Context, p *pool.Pool, dir string) {
+	t := time.NewTicker(authRescanInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			auths, err := auth.LoadDir(dir)
+			if err != nil {
+				continue
+			}
+			p.SyncToDir(auths)
+		}
+	}
 }

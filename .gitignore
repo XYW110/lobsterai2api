@@ -1,5 +1,6 @@
 # 敏感文件 — 绝不提交
 config.json
+.env
 auths/
 data/
 
@@ -9,6 +10,9 @@ data/
 *.dll
 *.so
 *.dylib
+/lobsterai2api
+/login
+/credit
 
 # Go 构建缓存
 *.test

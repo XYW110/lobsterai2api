@@ -1,0 +1,20 @@
+# 构建上下文裁剪：仅保留 go.mod / cmd / internal / config.example.json / docker
+/.git
+/.github
+/.gitignore
+/.dockerignore
+/docker-compose*.yml
+
+# 运行时数据（绝不能进镜像）
+/auths
+/data
+/config.json
+
+# 本地编译产物与宿主机脚本
+/lobsterai2api
+/login
+/credit
+/*.exe
+/*.sh
+/*.md
+/LICENSE

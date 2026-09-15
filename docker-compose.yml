@@ -1,0 +1,65 @@
+# lobsterai2api — 主流 Linux / amd64 + arm64 通用部署
+#
+#   1. cp .env.example .env && 编辑 .env
+#   2. docker compose pull            # 或 docker compose build（本地构建）
+#   3. docker compose up -d
+#   4. docker compose --profile login run --rm --service-ports login   # 登录加号
+#
+name: lobsterai2api
+
+services:
+  lobsterai2api:
+    image: ${LB2A_IMAGE:-dockercom110/lobsterai2api:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lobsterai2api
+    restart: unless-stopped
+    stop_grace_period: 10s
+    ports:
+      # 默认对全部网卡开放；只想本机访问可设 LB2A_BIND_HOST=127.0.0.1
+      # 对外开放时请务必设置 LB2A_API_KEY
+      - "${LB2A_BIND_HOST:-0.0.0.0}:${LB2A_PORT:-8367}:8367"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      LB2A_LISTEN: ":8367"
+      LB2A_API_KEY: ${LB2A_API_KEY:-}
+      LB2A_UPSTREAM_BASE: ${LB2A_UPSTREAM_BASE:-}
+      LB2A_TIMEOUT_SECONDS: ${LB2A_TIMEOUT_SECONDS:-180}
+      LB2A_ERR_THRESHOLD: ${LB2A_ERR_THRESHOLD:-3}
+      LB2A_HARD_CREDIT: ${LB2A_HARD_CREDIT:-12h}
+      LB2A_SOFT_RATE: ${LB2A_SOFT_RATE:-60s}
+      LB2A_ERR_COOLDOWN: ${LB2A_ERR_COOLDOWN:-10m}
+      # 取消注释即可按宿主机用户身份写文件（Linux 下用 id -u / id -g 取值）
+      # PUID: ${PUID:-1000}
+      # PGID: ${PGID:-1000}
+    volumes:
+      - ./auths:/app/auths
+      - ./data:/app/data
+      # 需要 JSON 配置时取消注释（文件必须已存在，否则 docker 会建同名目录）
+      # - ./config.json:/app/config.json:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8367/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # 一次性登录容器：只在需要新增账号时用 --profile login 拉起
+  login:
+    image: ${LB2A_IMAGE:-dockercom110/lobsterai2api:latest}
+    profiles: ["login"]
+    entrypoint: ["/usr/local/bin/entrypoint.sh", "/usr/local/bin/lb2a-login.sh"]
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      LB2A_UPSTREAM_BASE: ${LB2A_UPSTREAM_BASE:-}
+      LB2A_LOGIN_PORTAL: ${LB2A_LOGIN_PORTAL:-}
+      LB2A_AUTH_DIR: /app/auths
+      # 容器内必须监听 0.0.0.0，端口映射才能转发进来
+      LB2A_LOGIN_BIND: "0.0.0.0"
+      LB2A_LOGIN_PORT: "${LB2A_LOGIN_PORT:-1455}"
+    ports:
+      # 回调地址由登录页强制校验为 127.0.0.1，因此只绑本机 + 固定端口
+      - "127.0.0.1:${LB2A_LOGIN_PORT:-1455}:${LB2A_LOGIN_PORT:-1455}"
+    volumes:
+      - ./auths:/app/auths

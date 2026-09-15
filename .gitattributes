@@ -1,0 +1,5 @@
+# Shell 脚本与 Dockerfile 会在 Linux 容器内执行，必须保持 LF 换行。
+# Windows 上 core.autocrlf=true 会把它们转成 CRLF，导致 /bin/sh 报
+# "bad interpreter: not found"，所以这里显式锁定。
+*.sh text eol=lf
+Dockerfile text eol=lf

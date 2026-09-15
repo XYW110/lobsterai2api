@@ -8,6 +8,14 @@
 //
 // 认证流程：浏览器打开 {server}/login?source=electron&redirect_uri=http://127.0.0.1:{port}/auth/callback&state={state}
 // 回调带 ?code=X&state=Y → exchange code → accessToken + refreshToken。
+//
+// 环境变量：
+//
+//	LB2A_UPSTREAM_BASE  上游 API 基址（必填）
+//	LB2A_LOGIN_PORTAL   登录门户地址（必填）
+//	LB2A_AUTH_DIR       auth 文件落盘目录（默认 ./auths）
+//	LB2A_LOGIN_BIND     回调服务器监听地址（默认 127.0.0.1；容器内需 0.0.0.0）
+//	LB2A_LOGIN_PORT     回调服务器端口（默认随机；容器内需固定以便端口映射）
 package main
 
 import (
@@ -23,19 +31,51 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
 const (
-	clientUA        = "LobsterAI/0.1.0"
-	stateFile       = "/tmp/lb2api-login-state.json"
-	authsDir        = "./auths"
-	callbackPath    = "/auth/callback"
-	callbackTimeout = 10 * time.Minute
-	loginCallbackHost = "127.0.0.1"
+	clientUA            = "LobsterAI/0.1.0"
+	stateFile           = "/tmp/lb2api-login-state.json"
+	callbackPath        = "/auth/callback"
+	callbackTimeout     = 10 * time.Minute
+	defaultAuthsDir     = "./auths"
+	defaultCallbackHost = "127.0.0.1"
+	// 登录页强校验 redirect_uri 必须是 127.0.0.1，容器里即使监听 0.0.0.0
+	// 也不能把回调地址里的主机名换成容器 IP，否则会被拒绝。
+	redirectHost = "127.0.0.1"
 )
+
+// authsDir 返回 auth 文件落盘目录（LB2A_AUTH_DIR 可覆盖，容器内指向挂载卷）。
+func authsDir() string {
+	if v := os.Getenv("LB2A_AUTH_DIR"); v != "" {
+		return v
+	}
+	return defaultAuthsDir
+}
+
+// callbackBind 返回回调服务器监听地址。
+// 裸机默认 127.0.0.1；容器内需设为 0.0.0.0，端口映射才能把请求转发进来。
+func callbackBind() string {
+	if v := os.Getenv("LB2A_LOGIN_BIND"); v != "" {
+		return v
+	}
+	return defaultCallbackHost
+}
+
+// callbackPort 返回回调服务器监听端口；0 = 由系统随机分配。
+// 容器部署建议设固定端口并通过 -p 映射。
+func callbackPort() int {
+	if v := os.Getenv("LB2A_LOGIN_PORT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n < 65536 {
+			return n
+		}
+	}
+	return 0
+}
 
 // serverBase reads upstream API base from LB2A_UPSTREAM_BASE env.
 func serverBase() string {
@@ -161,13 +201,14 @@ func truncate(s string, n int) string {
 func runUrl() {
 	// 清理上一次登录残留（否则旧 .result 会让等待循环立刻误判完成）
 	os.Remove(stateFile + ".result")
+	os.Remove(stateFile + ".failed")
 	os.Remove(stateFile)
 	state := randomHex(16)
 	uuid := newUuid()
 	firstKeyfrom := nowMillis()
 
-	// 绑定随机端口
-	ln, err := net.Listen("tcp", loginCallbackHost+":0")
+	// 绑定回调端口：LB2A_LOGIN_PORT 未设置时用随机端口（裸机场景）
+	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", callbackBind(), callbackPort()))
 	if err != nil {
 		fatal("listen: %v", err)
 	}
@@ -197,6 +238,9 @@ func runUrl() {
 		outRaw := exchange(ls, code)
 		if outRaw != nil {
 			_ = os.WriteFile(stateFile+".result", outRaw, 0o600)
+		} else {
+			// exchange 失败：落失败标记，让 poll 立刻报错退出，不必空等满 10 分钟
+			_ = os.WriteFile(stateFile+".failed", []byte("exchange failed"), 0o600)
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = io.WriteString(w, "<html><body><h2>登录成功，可以关闭此窗口了</h2></body></html>")
@@ -222,7 +266,7 @@ func runUrl() {
 	// 打印登录 URL（portal 登录页，非 server /login API）
 	// 登录页校验 redirect_uri 必须是 http://127.0.0.1:{port}/auth/callback
 	// 登录成功后前端导航到该回调 → code → exchange
-	redirectURI := fmt.Sprintf("http://%s:%d%s", loginCallbackHost, port, callbackPath)
+	redirectURI := fmt.Sprintf("http://%s:%d%s", redirectHost, port, callbackPath)
 	loginURL := fmt.Sprintf("%s/portal#/login?source=electron&redirect_uri=%s&state=%s",
 		loginPortalURL(), urlQueryEscape(redirectURI), state)
 	fmt.Println(loginURL)
@@ -306,7 +350,8 @@ func exchange(ls loginState, code string) []byte {
 	}
 
 	// 写 auth 文件
-	if err := os.MkdirAll(authsDir, 0o755); err != nil {
+	dir := authsDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		fmt.Fprintf(os.Stderr, "login: mkdir auths: %v\n", err)
 		return nil
 	}
@@ -333,7 +378,7 @@ func exchange(ls loginState, code string) []byte {
 		},
 	}
 	outRaw, _ := json.MarshalIndent(doc, "", "  ")
-	fp := filepath.Join(authsDir, fmt.Sprintf("lobsterai-%s.json", uid))
+	fp := filepath.Join(dir, fmt.Sprintf("lobsterai-%s.json", uid))
 	if err := os.WriteFile(fp, outRaw, 0o600); err != nil {
 		fmt.Fprintf(os.Stderr, "login: write auth: %v\n", err)
 		return nil
@@ -353,10 +398,15 @@ func exchange(ls loginState, code string) []byte {
 	return oraw
 }
 
-// runPoll 等待 login url 完成（读取 .result 文件）。
+// runPoll 等待 login url 完成（读取 .result / .failed 文件）。
 func runPoll() {
 	deadline := time.Now().Add(callbackTimeout)
 	for time.Now().Before(deadline) {
+		if _, err := os.Stat(stateFile + ".failed"); err == nil {
+			os.Remove(stateFile + ".failed")
+			os.Remove(stateFile)
+			fatal("授权码换取 token 失败（code 无效/已过期，或上游报错），请重新登录")
+		}
 		if raw, err := os.ReadFile(stateFile + ".result"); err == nil {
 			fmt.Println(string(raw))
 			os.Remove(stateFile + ".result")
@@ -365,7 +415,7 @@ func runPoll() {
 		}
 		time.Sleep(time.Second)
 	}
-	fatal("登录超时（5 分钟内未完成）")
+	fatal("登录超时（%s 内未完成回调）", callbackTimeout)
 }
 
 func main() {

@@ -30,7 +30,8 @@ type Config struct {
 	} `json:"schedule"`
 
 	Upstream struct {
-		TimeoutSeconds int `json:"timeout_seconds"` // 默认 180
+		TimeoutSeconds int    `json:"timeout_seconds"` // 默认 180
+		BaseURL        string `json:"base_url"`        // 上游 API 基址；空则用 LB2A_UPSTREAM_BASE
 	} `json:"upstream"`
 
 	// 解析后
@@ -107,6 +108,9 @@ func applyEnv(c *Config) {
 		if n, err := strconv.Atoi(v); err == nil {
 			c.Upstream.TimeoutSeconds = n
 		}
+	}
+	if v := os.Getenv("LB2A_UPSTREAM_BASE"); v != "" {
+		c.Upstream.BaseURL = v
 	}
 }
 

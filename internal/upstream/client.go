@@ -21,13 +21,25 @@ const (
 	clientUA      = "LobsterAI/0.1.0"
 )
 
-// ServerBase returns the upstream API base URL from LB2A_UPSTREAM_BASE env.
+// serverBaseOverride 由 SetServerBase 设置（config.json 里的 upstream.base_url）。
+var serverBaseOverride string
+
+// ServerBase returns the upstream API base URL.
+// 取值优先级：SetServerBase > LB2A_UPSTREAM_BASE 环境变量。
 // No hardcoded domain — users must set this in their config or environment.
 func ServerBase() string {
+	if serverBaseOverride != "" {
+		return serverBaseOverride
+	}
 	if v := os.Getenv("LB2A_UPSTREAM_BASE"); v != "" {
 		return strings.TrimRight(v, "/")
 	}
 	return ""
+}
+
+// SetServerBase 覆盖上游基址（来自 config.json 的 upstream.base_url）。
+func SetServerBase(base string) {
+	serverBaseOverride = strings.TrimRight(strings.TrimSpace(base), "/")
 }
 
 // apiEnvelope 上游统一信封。
