@@ -1,0 +1,2 @@
+{"file": "internal/scheduler/scheduler.go", "reason": "调用方契约：RunCheckinNow 已逐账号调 DailyCheckin(a) 并随后查余额解冻，本任务不改调度器"}
+{"file": "internal/upstream/client.go", "reason": "doJSON/apiEnvelope 复用点；DailyCheckin no-op 现状；ServerBase 基址约定"}

@@ -1,0 +1,4 @@
+{"file": "internal/upstream/client.go", "reason": "ChatStream 200 分支需改为无损窥探错误帧，返回 peekCloser；LastBody 回填错误体"}
+{"file": "internal/server/handler.go", "reason": "错误分支判定 status>=400 需改为 rc==nil，覆盖 200 带错误帧路径"}
+{"file": "internal/upstream/classify.go", "reason": "hardMarkers 需追加额度已用完/免费额度/升级套餐/40201 分类词"}
+{"file": "internal/upstream/sse.go", "reason": "Aggregate 消费逻辑参照：错误帧无 choices 导致 content 为空的假成功路径"}

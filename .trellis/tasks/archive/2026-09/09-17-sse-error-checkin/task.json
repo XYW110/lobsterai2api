@@ -1,0 +1,29 @@
+{
+  "id": "sse-error-checkin",
+  "name": "sse-error-checkin",
+  "title": "移植上游 HTTP 200 流内错误帧识别 + 实现每日签到",
+  "description": "移植上游 PR#3 的无损 SSE 窥探修复；并用 temp.txt 的签到经验实现 DailyCheckin 与 clientVersion 动态解析",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "xyw",
+  "assignee": "xyw",
+  "createdAt": "2026-09-17",
+  "completedAt": "2026-09-17",
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "09-17-sse-error-frame-fix",
+    "09-17-daily-checkin"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

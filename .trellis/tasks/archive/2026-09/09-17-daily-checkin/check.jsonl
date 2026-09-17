@@ -1,0 +1,1 @@
+{"file": "internal/upstream/client.go", "reason": "确认 envelope 扩展 message 字段后既有 chat/refresh 路径行为不变"}

@@ -1,0 +1,1 @@
+{"file": "internal/server/handler.go", "reason": "回归确认 handler 错误分支改用 rc==nil 后非 2xx 路径不回归"}
