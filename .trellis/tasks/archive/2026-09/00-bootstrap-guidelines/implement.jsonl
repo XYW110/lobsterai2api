@@ -1,0 +1,2 @@
+{"file": "README.md", "reason": "项目架构/环境变量/部署约定的既有文档，spec 内容主要来源"}
+{"file": ".trellis/tasks/00-bootstrap-guidelines/prd.md", "reason": "本任务要求：填充 backend spec、写实际示例、勿留占位"}
