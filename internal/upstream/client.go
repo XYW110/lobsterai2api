@@ -43,11 +43,20 @@ func SetServerBase(base string) {
 	serverBaseOverride = strings.TrimRight(strings.TrimSpace(base), "/")
 }
 
-// apiEnvelope 上游统一信封。
+// apiEnvelope 上游统一信封（msg / message 两种字段名都出现过）。
 type apiEnvelope struct {
-	Code int             `json:"code"`
-	Msg  string          `json:"msg"`
-	Data json.RawMessage `json:"data"`
+	Code    int             `json:"code"`
+	Msg     string          `json:"msg"`
+	Message string          `json:"message"`
+	Data    json.RawMessage `json:"data"`
+}
+
+// envMsg 取信封错误信息（msg 优先，message 兜底）。
+func (e apiEnvelope) envMsg() string {
+	if e.Msg != "" {
+		return e.Msg
+	}
+	return e.Message
 }
 
 // Client 上游 HTTP 客户端。
@@ -94,11 +103,12 @@ func (c *Client) doJSON(req *http.Request) (json.RawMessage, error) {
 		return nil, fmt.Errorf("parse failed: %w (body: %s)", err, truncate(string(raw), 120))
 	}
 	if env.Code != 0 {
-		kind := Classify(resp.StatusCode, env.Msg)
+		msg := env.envMsg()
+		kind := Classify(resp.StatusCode, msg)
 		if kind == ErrNone {
 			kind = ErrClient
 		}
-		return nil, &Error{Kind: kind, Status: resp.StatusCode, Msg: fmt.Sprintf("code=%d msg=%s", env.Code, truncate(env.Msg, 160))}
+		return nil, &Error{Kind: kind, Status: resp.StatusCode, Msg: fmt.Sprintf("code=%d msg=%s", env.Code, truncate(msg, 160))}
 	}
 	return env.Data, nil
 }
@@ -364,12 +374,4 @@ func (c *Client) QuotaUsage(a *auth.Auth) (remain int64, total int64, err error)
 		return clamp(ps.TotalCreditsRemaining), 0, nil
 	}
 	return 0, 0, fmt.Errorf("profile-summary: no credits")
-}
-
-// DailyCheckin 执行每日签到。目前龙虾签到端点未知，返回 nil（no-op）。
-// 后续抓包确定端点后再实现。
-func (c *Client) DailyCheckin(a *auth.Auth) error {
-	// TODO: LobsterAI daily sign-in endpoint TBD
-	// placeholder: return nil means "checkin skipped silently"
-	return nil
 }
