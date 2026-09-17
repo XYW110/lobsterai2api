@@ -180,6 +180,7 @@ See `config.example.json`. Environment variable prefix `LB2A_*`:
 | `LB2A_ERR_THRESHOLD` / `LB2A_ERR_COOLDOWN` | Error threshold and cooldown |
 | `LB2A_TIMEOUT_SECONDS` | Upstream timeout |
 | `LB2A_UPSTREAM_BASE` | Upstream API base URL (required) |
+| `LB2A_UPDATE_API` | Vendor version endpoint; enables the daily check-in (unset = check-in skipped) |
 | `LB2A_LOGIN_PORTAL` | Login portal URL for OAuth flow (required for login) |
 | `LB2A_LOGIN_BIND` | Callback server bind address (`127.0.0.1` bare metal, `0.0.0.0` in Docker) |
 | `LB2A_LOGIN_PORT` | Callback server port (`0`/unset = random, fixed port needed in Docker) |
@@ -206,8 +207,8 @@ container starts when only `.env` is used).
 
 ## Known limitations / TODO
 
-- Daily checkin endpoint not yet identified, `DailyCheckin` is currently a no-op
-- Dynamic model list from upstream API (cached 1h, falls back to static table)
+- Session-dead accounts stay disabled until re-login or file replacement (no re-enable endpoint)
+- No unit tests yet for the `pool`, `auth`, `server` and `scheduler` packages
 
 ## License
 
