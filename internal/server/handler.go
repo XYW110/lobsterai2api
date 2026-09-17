@@ -215,7 +215,9 @@ func (h *Handler) chatCompletions(w http.ResponseWriter, r *http.Request) {
 			h.cfg.Pool.NoteError(acct.UID, h.cfg.ErrThreshold, h.cfg.ErrCooldown)
 			continue
 		}
-		if status >= 400 {
+		// rc == nil 覆盖两条错误路径：非 2xx 响应，以及 HTTP 200 流首带业务错误帧
+		//（如 code=40201 额度用完）。body 都在 Upstream.LastBody。
+		if rc == nil {
 			kind := upstream.Classify(status, string(h.cfg.Upstream.LastBody))
 			switch kind {
 			case upstream.ErrHardCredit:

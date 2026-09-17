@@ -2,6 +2,7 @@
 package upstream
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -206,9 +207,33 @@ func prepareChatBody(rawBody []byte) []byte {
 	return out
 }
 
+// peekBufSize 流首窥探窗口：足够容纳上游的 event:error 首帧。
+const peekBufSize = 4 << 10
+
+// peekCloser 先吐出窥探缓冲中的字节，再接底层 body，保证流首无损。
+type peekCloser struct {
+	br *bufio.Reader
+	c  io.Closer
+}
+
+func (p *peekCloser) Read(b []byte) (int, error) { return p.br.Read(b) }
+func (p *peekCloser) Close() error               { return p.c.Close() }
+
+// isSSEErrorFrame 判定流首是否为上游藏在 HTTP 200 里的业务错误帧
+// （典型：event:error + data:{"type":"error","error":{"code":40201,...}}）。
+func isSSEErrorFrame(head []byte) bool {
+	lower := strings.ToLower(string(head))
+	if strings.Contains(lower, "event:error") || strings.Contains(lower, "event: error") {
+		return true
+	}
+	return strings.Contains(lower, `"error":{`) || strings.Contains(lower, `"error": {`)
+}
+
 // ChatStream 发 chat 请求并返回原始 SSE body 流（调用方负责 Close）。
 // 非 2xx 时 rc 为 nil、status 为上游状态码、err 为 nil（body 在 c.LastBody，
 // 调用方用 Classify(status, body) 判定）；只有传输层失败才返回 err。
+// HTTP 200 也会窥探流首（无损，同一 bufio.Reader 交给下游）：
+// 命中 event:error / "error":{ 错误帧时按非 2xx 相同路径处置（rc=nil + LastBody）。
 func (c *Client) ChatStream(a *auth.Auth, body []byte) (rc io.ReadCloser, status int, err error) {
 	url := ServerBase() + "/api/proxy/v1/chat/completions"
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(prepareChatBody(body)))
@@ -230,7 +255,24 @@ func (c *Client) ChatStream(a *auth.Auth, body []byte) (rc io.ReadCloser, status
 			a.UID, resp.StatusCode, kind, truncate(string(raw), 200))
 		return nil, resp.StatusCode, nil
 	}
-	return resp.Body, resp.StatusCode, nil
+	// 200 也可能携带业务错误帧（如 code=40201 额度用完），窥探流首识别。
+	br := bufio.NewReaderSize(resp.Body, peekBufSize)
+	head, perr := br.Peek(peekBufSize)
+	if perr != nil && perr != io.EOF {
+		resp.Body.Close()
+		log.Printf("chat_stream uid=%s: peek error: %v", a.UID, perr)
+		return nil, 0, perr
+	}
+	if isSSEErrorFrame(head) {
+		raw, _ := io.ReadAll(io.LimitReader(br, 1<<20))
+		resp.Body.Close()
+		c.LastBody = raw
+		kind := Classify(resp.StatusCode, string(raw))
+		log.Printf("chat_stream uid=%s: upstream 200 error frame %s body=%s",
+			a.UID, kind, truncate(string(raw), 200))
+		return nil, resp.StatusCode, nil
+	}
+	return &peekCloser{br: br, c: resp.Body}, resp.StatusCode, nil
 }
 
 // FetchModels 调上游动态模型接口。
