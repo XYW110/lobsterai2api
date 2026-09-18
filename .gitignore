@@ -11,6 +11,13 @@ temp.txt
 
 # Trellis 本地运行时与个人记录（spec/ 与 tasks/ 仍正常提交）
 .trellis/workspace/
+.trellis/agents/
+.trellis/scripts/
+.trellis/workflow.md
+.trellis/config.yaml
+.trellis/.gitignore
+.trellis/.template-hashes.json
+.trellis/.version
 
 # 编译产物
 *.exe
