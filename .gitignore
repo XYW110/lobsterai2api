@@ -3,6 +3,14 @@ config.json
 .env
 auths/
 data/
+temp.txt
+
+# AI 客户端本地配置（CodeBuddy / ZCode），不对外共享
+.codebuddy/
+.zcode/
+
+# Trellis 本地运行时与个人记录（spec/ 与 tasks/ 仍正常提交）
+.trellis/workspace/
 
 # 编译产物
 *.exe
