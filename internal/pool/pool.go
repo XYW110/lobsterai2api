@@ -130,11 +130,13 @@ func (p *Pool) Add(a *auth.Auth) {
 }
 
 // SyncToDir 用最新扫描结果对齐池：新账号加入、消失的账号剔除（状态保留），
-// 凭证变更的账号自动恢复启用。
+// 凭证变更的账号自动恢复启用；账号集合确有增删时落盘（否则重启会把已移除账号
+// 复活成空令牌占位账号），无变化的 30s 重扫不写盘。
 func (p *Pool) SyncToDir(auths []*auth.Auth) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	seen := map[string]bool{}
+	changed := false
 	for _, a := range auths {
 		seen[a.UID] = true
 		if e, ok := p.byUID[a.UID]; ok {
@@ -144,12 +146,17 @@ func (p *Pool) SyncToDir(auths []*auth.Auth) {
 			}
 		} else {
 			p.byUID[a.UID] = &entry{a: a}
+			changed = true
 		}
 	}
 	for uid := range p.byUID {
 		if !seen[uid] {
 			delete(p.byUID, uid)
+			changed = true
 		}
+	}
+	if changed {
+		p.saveLocked()
 	}
 }
 
