@@ -20,6 +20,7 @@
 - Comments are Chinese; identifiers, log messages and error strings are English. Keep that split when editing.
 - Errors: wrap with `%w` and a lowercase operation prefix (`fmt.Errorf("check_in: %w", err)`); typed `*upstream.Error` is produced only by the upstream layer.
 - New config knobs are wired in four places: `Config` struct, `Default()`, `applyEnv()` (`cmd/server/config.go`), and docs (`README.md`, `config.example.json`, `.env.example`).
+- **Env-only knobs** (read straight from the environment by a non-`cmd/server/config.go` layer, precedent: `LB2A_UPDATE_API` in `internal/upstream/checkin.go`) have no `Config` field, so their wiring list is different: the consuming code, `.env.example`, `README.md`, **and the `lobsterai2api` service `environment` block in `docker-compose.yml`**. Compose passes only variables that are declared there, so forgetting it makes the feature silently vanish in Docker while bare-metal works — the exact bug fixed on 2026-09-19 (`LB2A_UPDATE_API` was documented in `.env.example`/`README` but never reached the container, so the daily check-in never ran). The `login` service only needs the variables `cmd/login` reads.
 - Concurrency: mutable shared state lives behind a mutex inside its owner (`pool.Pool`, `versionCache`); do not add package-level mutable state elsewhere.
 - HTTP layer follows `cmd/server/main.go`: Go 1.22 method-pattern routes, `ReadHeaderTimeout`, `signal.NotifyContext` shutdown.
 
@@ -43,7 +44,7 @@
 go build ./... && go vet ./... && go test ./...
 ```
 
-`gofmt` formatting is expected. On Windows checkouts `gofmt -l` flags every file that round-tripped through CRLF — compare against a file you did not touch before reacting.
+`gofmt` formatting is expected. `*.go` is pinned to LF by `.gitattributes` (`*.go text eol=lf`), so a fresh clone is `gofmt -l`-clean — verified end to end on 2026-09-19 with a throwaway clone under `core.autocrlf=true`. A `gofmt -l` hit in your own worktree therefore means either a genuine formatting deviation or stale CRLF line endings from a pre-rule checkout; re-checkout the file (`git rm --cached` + `git checkout -- <file>`, or a fresh clone) and re-run before reacting.
 
 ---
 
