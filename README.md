@@ -147,6 +147,10 @@ curl -s http://127.0.0.1:8367/v1/models -H "Authorization: Bearer ***"
 
 # status
 curl -s http://127.0.0.1:8367/status
+
+# re-enable a disabled account (uid comes from /status)
+curl -s -X POST http://127.0.0.1:8367/admin/accounts/<uid>/enable \
+  -H "Authorization: Bearer ***"
 ```
 
 ## Publish to Docker Hub
@@ -198,18 +202,25 @@ container starts when only `.env` is used).
 
 - **Multi-account pool** — auto-load auth files from `auths/`, pick highest-credit healthy account per request
 - **OpenAI-compatible** — `/v1/chat/completions` (streaming + non-streaming), `/v1/models`, `/status`, `/healthz`
+- **Admin route** — `POST /admin/accounts/{uid}/enable` clears a disabled/cooling account (bearer-authenticated like `/v1/*`, not part of the OpenAI surface)
 - **OAuth login** — local callback server, browser-based login, auto-save credentials
 - **Token refresh** — JWT expiry parsing, proactive refresh 10min before expiry, session death auto-disable
 - **Error classification** — hard credit cooldown 12h, 429 soft cooldown 60s, consecutive errors 3→10m, refresh rejected → disable
 - **Request-level rotation** — up to 3 account switches per request
-- **Hot account reload** — `auths/` is rescanned every 30s; new logins take effect without a restart
+- **Hot account reload** — `auths/` is rescanned every 30s; new logins take effect without a restart, and a changed `accessToken` automatically clears that account's disabled state
 - **Scheduler** — daily checkin + credit refresh, token keepalive
 - **Dynamic model list** — fetched from upstream API, cached 1h, falls back to static table
 
 ## Known limitations / TODO
 
-- Session-dead accounts stay disabled until re-login or file replacement (no re-enable endpoint)
-- No unit tests yet for the `pool`, `auth`, `server` and `scheduler` packages
+- Session-dead accounts are disabled, and re-enabled in two ways: a **fresh login**
+  writes a new `accessToken` into the auth file and the 30s rescan picks it up
+  automatically (no restart, no endpoint call); if the token has not changed
+  (e.g. you restored the same file), recover manually with
+  `POST /admin/accounts/<uid>/enable` — bearer-authenticated with `LB2A_API_KEY`,
+  same as `/v1/*`, and returns the account's status (`404` for an unknown uid)
+- `/status` itself is not authenticated; keep the port private or set `LB2A_API_KEY`
+- `auth`, `scheduler` and `cmd/*` still have no unit tests (`upstream`, `pool` and `server` are covered)
 
 ## License
 

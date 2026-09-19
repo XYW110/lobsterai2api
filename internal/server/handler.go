@@ -58,6 +58,7 @@ func NewHandler(cfg Config) *Handler {
 	h.mux.HandleFunc("GET /v1/models", h.withAuth(h.models))
 	h.mux.HandleFunc("GET /status", h.status)
 	h.mux.HandleFunc("GET /healthz", h.healthz)
+	h.mux.HandleFunc("POST /admin/accounts/{uid}/enable", h.withAuth(h.enableAccount))
 	return h
 }
 
@@ -87,6 +88,24 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"accounts": h.cfg.Pool.List(),
 	})
+}
+
+// enableAccount 运维接口：手动清除账号的禁用/冷却状态（凭证未变化、无法自动恢复时使用）。
+// 命中返回该账号的脱敏状态；uid 不存在返回 404。
+func (h *Handler) enableAccount(w http.ResponseWriter, r *http.Request) {
+	uid := r.PathValue("uid")
+	if !h.cfg.Pool.Enable(uid) {
+		writeOpenAIError(w, http.StatusNotFound, "account_not_found", "no such account: "+uid)
+		return
+	}
+	// 复用 List 取脱敏状态：账号可能刚被 rescan 剔除，取不到则按未命中处理
+	for _, st := range h.cfg.Pool.List() {
+		if st.UID == uid {
+			writeJSON(w, http.StatusOK, st)
+			return
+		}
+	}
+	writeOpenAIError(w, http.StatusNotFound, "account_not_found", "no such account: "+uid)
 }
 
 // 静态模型表（动态接口失败时的回退）。
