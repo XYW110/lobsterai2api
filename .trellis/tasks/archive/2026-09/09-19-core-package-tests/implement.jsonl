@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "测试规范：stdlib+httptest、同包、无断言库、t.Setenv、字节级断言"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "状态码/ErrKind 契约，server 轮换与 503 行为断言依据"}
+{"file": ".trellis/spec/backend/persistence-guidelines.md", "reason": "state.json 与 auth 文件往返断言的依据"}
+{"file": ".trellis/spec/backend/upstream-integration.md", "reason": "假上游需要模拟的端点/信封/SSE 形态"}

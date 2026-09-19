@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "核对测试是否违反禁令（第三方依赖、私有细节断言、顺序依赖）"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "核对轮换/冷却/鉴权断言与错误契约一致"}
