@@ -47,6 +47,7 @@ Key `.env` knobs:
 
 - `LB2A_IMAGE` — image reference to pull; defaults to `dockercom110/lobsterai2api:latest`
 - `LB2A_UPSTREAM_BASE` — upstream API base URL (required)
+- `LB2A_UPDATE_API` — vendor version endpoint used to resolve `clientVersion` for the daily check-in; unset = check-in skipped
 - `LB2A_API_KEY` — local bearer key; **set it whenever the port is exposed**
 - `LB2A_BIND_HOST` — `0.0.0.0` (default) or `127.0.0.1` for loopback-only
 - `LB2A_PORT` — published port (default `8367`)

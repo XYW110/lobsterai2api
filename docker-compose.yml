@@ -25,6 +25,8 @@ services:
       LB2A_LISTEN: ":8367"
       LB2A_API_KEY: ${LB2A_API_KEY:-}
       LB2A_UPSTREAM_BASE: ${LB2A_UPSTREAM_BASE:-}
+      # 客户端版本发布接口，签到靠它解析 clientVersion；留空 = 跳过每日签到
+      LB2A_UPDATE_API: ${LB2A_UPDATE_API:-}
       LB2A_TIMEOUT_SECONDS: ${LB2A_TIMEOUT_SECONDS:-180}
       LB2A_ERR_THRESHOLD: ${LB2A_ERR_THRESHOLD:-3}
       LB2A_HARD_CREDIT: ${LB2A_HARD_CREDIT:-12h}
