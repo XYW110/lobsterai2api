@@ -129,6 +129,14 @@ go build -o credit.exe ./cmd/credit
 
 ## Test
 
+Unit tests are stdlib-only and need no external services:
+
+```bash
+go test ./...
+```
+
+Manual smoke tests against a running server:
+
 ```bash
 # non-streaming
 curl -s http://127.0.0.1:8367/v1/chat/completions \
@@ -220,7 +228,9 @@ container starts when only `.env` is used).
   `POST /admin/accounts/<uid>/enable` — bearer-authenticated with `LB2A_API_KEY`,
   same as `/v1/*`, and returns the account's status (`404` for an unknown uid)
 - `/status` itself is not authenticated; keep the port private or set `LB2A_API_KEY`
-- `auth`, `scheduler` and `cmd/*` still have no unit tests (`upstream`, `pool` and `server` are covered)
+- The three binaries under `cmd/` (`server`, `login`, `credit`) still have no unit tests;
+  the `internal/*` libraries (`auth`, `pool`, `server`, `scheduler`, `upstream`) are covered
+  by stdlib + `httptest` tests (`go test ./...`, no external services)
 
 ## License
 

@@ -34,7 +34,9 @@
 - Environment-dependent tests use `t.Setenv` (auto-restores); global caches are reset explicitly when they affect the test (`versionCache` in `checkin_test.go`).
 - Protocol-sensitive behavior gets **byte-exact** assertions, not "contains": the SSE passthrough test compares the whole 60KB stream with `bytes.Equal`.
 - Regression tests are named for the failure they prevent (`TestChatStreamErrorFrameIn200`, `TestChatStreamPassthroughByteExact`).
-- `pool`, `auth`, `server`, `scheduler` currently have no tests — add coverage when you change their behavior.
+- Prove a test can fail before trusting it: temporarily neutralize the production behaviour it targets (a comparison, a guard, a `continue`), watch the test fail, then revert and confirm the tree is byte-identical. The 2026-09-19 suite review did this for `pool.Pick`'s credit comparison, the handler's `rc == nil` branch, `nextFire`, `auth.Parse`'s accessToken check, the `SyncToDir` save guard and `RunCheckinNow`'s disabled skip — every one was caught.
+- `go test -race` needs cgo and thus a C compiler; the Windows dev machine and the alpine image provide none, so it is not runnable here. Substitute `-count=2` / `-shuffle=on` repeat runs plus a static check that every new path holds its owner's mutex (no `t.Parallel` in tests touching package-level state).
+- `auth`, `pool`, `server`, `scheduler` and `upstream` all have stdlib tests; `cmd/*` are the only untested paths — add coverage when you change those packages.
 
 ---
 
