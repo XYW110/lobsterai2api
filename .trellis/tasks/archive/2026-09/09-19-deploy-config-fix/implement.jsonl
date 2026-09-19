@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "禁止硬编码上游域名、提交风格与验证命令"}
+{"file": ".trellis/spec/backend/upstream-integration.md", "reason": "LB2A_UPDATE_API 是签到版本解析的唯一开关，留空即跳过"}
