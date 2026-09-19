@@ -28,7 +28,7 @@ Envelope note: upstream API responses wrap as `{code, msg|message, data}` — so
 |---|---|---|
 | `ErrHardCredit` | HTTP 402, or a `hardMarkers` hit | `Cooldown(CoolHard, 12h)` |
 | `ErrSoftRate` | HTTP 429 | `Cooldown(CoolSoft, 60s)` |
-| `ErrSessionDead` | 401 + `sessionDeadMarkers` | `Disable` (requires re-login) |
+| `ErrSessionDead` | 401 + `sessionDeadMarkers` | `Disable` (needs a new credential — see the disable/re-enable lifecycle below) |
 | `ErrNotFound` | HTTP 404 | short cooldown, `errCount` not incremented (防雪崩) |
 | `ErrServer` | 5xx | rotate + `NoteError` threshold |
 | `ErrClient` | other 4xx / business code | rotate + `NoteError` threshold |
@@ -59,6 +59,20 @@ Durations and thresholds come from config (`cmd/server/config.go`), not from lit
 - All local API errors go through `writeOpenAIError(w, status, code, msg)` (`internal/server/handler.go`) in OpenAI shape: `{"error": {"message", "type": "api_error", "code"}}`.
 - Handler policy: rotate accounts up to `MaxRotate` (3); when all fail → 503 `no_healthy_account` with the last classified error appended. Business errors do not get their own HTTP status — they trigger rotation instead.
 - Transport errors (`err != nil`) → `NoteError` + rotate. Classified errors (`rc == nil`) → cooldown/disable/rotate chosen by kind (table above).
+- The operator route `POST /admin/accounts/{uid}/enable` sits behind `withAuth` (same bearer check as `/v1/*`) and reuses the OpenAI error shape: 200 + the masked `pool.Status` on a hit, 404 `account_not_found` on a miss. `/status` remains unauthenticated by design — never put a mutating route there.
+
+---
+
+## Account disable / re-enable lifecycle
+
+`entry.disabled` in `internal/pool` is the terminal "operator must act" state; unlike cooldowns it never expires, and it is persisted in `state.json`, so it survives restarts. It is written by three call sites only: `handler.go` (refresh → `ErrSessionDead`, and a 200 error frame classified as `ErrSessionDead`) and `scheduler.RunKeepaliveNow` (refresh failure with that kind). Do not add expiry semantics to `disabled` — use `Cooldown` for time-based recovery.
+
+Two paths clear it, and **both must call `saveLocked()`** — clearing the flag only in memory is a real bug (found 2026-09-19): the 30s rescan re-enables the account, but on the next restart `load()` restores `disabled:true`, and the placeholder guard below then blocks the credential-change path forever, so the account is dead again with no way back short of restarting twice.
+
+1. **Credential change (automatic)** — `entry.rotateCredentials` (used by both `Add` and `SyncToDir`): if the stored accessToken is non-empty **and** differs from the incoming one, the account is treated as re-logged-in and `disabled` / `until` / `reason` / `errCount` are cleared, logging `auth_rotate uid=%s: access token changed, account re-enabled`.
+   - The `old != ""` guard is load-bearing: `pool.load` seeds each account with `&auth.Auth{UID: uid}`, so without it the first `Add` after every startup would look like a rotation and wipe the persisted flag.
+   - accessToken is the fingerprint on purpose: an in-process `RefreshToken` mutates `entry.a` and the same value is written to disk, so the following rescan compares equal and does **not** unlock a healthy account by accident.
+2. **Manual** — `Pool.Enable(uid) bool` clears `disabled`/`until`/`reason`/`errCount` (never `credits`), persists only on a hit, and is exposed as `POST /admin/accounts/{uid}/enable` for the "same file restored, token unchanged" case.
 
 ---
 
