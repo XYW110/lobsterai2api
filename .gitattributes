@@ -4,6 +4,11 @@
 *.sh text eol=lf
 Dockerfile text eol=lf
 
+# Go 源码同理：Windows 上 core.autocrlf=true 会把工作区转成 CRLF，导致
+# gofmt -l 把每个文件都列成"未格式化"。仓库 blob 一直是 LF，这条规则只约束
+# 检出与提交时的换行，不触发历史文件重写。
+*.go text eol=lf
+
 # Trellis: append-only developer journals should merge cleanly across
 # parallel sessions/worktrees — each session only appends a new block, so
 # there is nothing to actually conflict on.

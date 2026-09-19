@@ -15,7 +15,7 @@ import (
 type Auth struct {
 	AccessToken   string
 	RefreshToken  string
-	ExpiresAt     int64 // Unix 秒
+	ExpiresAt     int64  // Unix 秒
 	UID           string // 用户唯一 ID
 	UserId        string // 有道 yid
 	Nickname      string

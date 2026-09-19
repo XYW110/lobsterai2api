@@ -31,7 +31,7 @@ func serverBase() string {
 
 type authFile struct {
 	Auth struct {
-		AccessToken string `json:"accessToken"`
+		AccessToken  string `json:"accessToken"`
 		RefreshToken string `json:"refreshToken"`
 		ExpiresAt    int64  `json:"expiresAt"`
 	} `json:"auth"`
