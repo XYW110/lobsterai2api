@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "必守模式：导出符号注释、错误包装、测试要求、配置四处接线"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "新路由错误体形态与既有分类契约一致性"}

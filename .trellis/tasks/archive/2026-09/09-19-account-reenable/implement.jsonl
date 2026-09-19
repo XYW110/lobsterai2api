@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/backend/persistence-guidelines.md", "reason": "state.json 字段语义与原子写规则，Enable 必须落盘且不改结构"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "日志形态 operation id: detail，且绝不记录令牌"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "internal 层依赖方向与文件放置，新路由/新方法的位置"}
