@@ -1,0 +1,30 @@
+{
+  "id": "leftover-completion",
+  "name": "leftover-completion",
+  "title": "遗留项收口：部署配置遗漏 + 测试覆盖 + 失效账号恢复",
+  "description": "收口上一轮盘点出的遗留项：Docker 部署漏传 LB2A_UPDATE_API、核心包无单测、失效账号无法重新启用",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "xyw",
+  "assignee": "xyw",
+  "createdAt": "2026-09-19",
+  "completedAt": "2026-09-19",
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "09-19-deploy-config-fix",
+    "09-19-account-reenable",
+    "09-19-core-package-tests"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
